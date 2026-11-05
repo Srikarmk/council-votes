@@ -20,6 +20,7 @@ from .sources import RAW, ROLLCALL_URL, ROOT
 OUT = os.path.join(ROOT, "web", "data")
 DATASET_URL = "https://data.boston.gov/dataset/city-council-roll-call-votes"
 KINDS = ["yes", "no", "present", "abstain", "absent"]
+VOTE_LETTER = {"yes": "y", "no": "n", "present": "p", "abstain": "a", "absent": "x", "choice": "c", "unknown": "u"}
 
 
 def load_sources() -> tuple[list[parse.RollCall], list[parse.RollCall]]:
@@ -59,7 +60,7 @@ def title(description: str, docket: str) -> str:
     t = re.sub(rf"\((\$[\d,.]+)\)\s*\({spelled}\)", r"\1", t, flags=re.I)
     t = re.sub(r"^Message and (order|ordinance)\s+(?=(to|for|approving|authorizing|declaring|amending)\b)", "",
                t, flags=re.I)
-    first = re.split(r"(?<=[a-z0-9)\"”])\.\s+(?=[A-Z])", t, maxsplit=1)[0]
+    first = re.split(r"(?<=[a-z0-9)\"”])\.\s+(?=[A-Z])|(?<=\.[\"”])\s+(?=[A-Z])", t, maxsplit=1)[0]
     first = first[0].upper() + first[1:] if first else first
     return first if len(first) <= 180 else first[:177].rsplit(" ", 1)[0] + "…"
 
@@ -87,7 +88,7 @@ def build() -> dict:
     rolls = []
     for r in sorted(cleaned, key=lambda x: (x.date, x.source_id), reverse=True):
         counts = Counter(v.vote for v in r.votes)
-        problems = checks.check(r, known)
+        problems = checks.check(r, known, {p.split("-")[0]: v["name"] for p, v in people.items()})
         twin = od_by_key.get((r.date, r.docket.lstrip("0")), []) if r.source == "bostongov" else []
         if len(twin) == 1:
             a = {(v.councillor, v.vote) for v in r.votes}
@@ -143,4 +144,13 @@ def build() -> dict:
     for name, obj in [("rollcalls.json", rolls), ("councillors.json", councillors), ("summary.json", summary)]:
         with open(os.path.join(OUT, name), "w") as f:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+    # A compact index the browser loads for search and filters: no full descriptions, no notes.
+    index = [{"id": r["id"], "d": r["date"], "k": r["docket"], "t": r["title"], "c": r["counts"],
+              "s": int(r["split"]), "p": int(bool(r["problems"])), "e": int(r["election"]),
+              "v": "".join(VOTE_LETTER[v[1]] for v in r["votes"]), "w": [v[0] for v in r["votes"]],
+              "x": re.sub(r"\s+", " ", r["description"])}  # searched, never shown
+             for r in rolls]
+    os.makedirs(os.path.join(ROOT, "web", "public"), exist_ok=True)
+    with open(os.path.join(ROOT, "web", "public", "index.json"), "w") as f:
+        json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
     return summary

@@ -80,11 +80,11 @@ def test_check_flags_a_record_that_contradicts_its_description():
     rc = clean.CleanRollCall("x", "opendata", "3207", "0001", "2023-11-29",
                              "the order failed on passage; yeas 5, nays 2 (Durkin, Louijeune)",
                              [clean.Vote(n, "yes") for n in ["a", "b", "c", "d", "e", "durkan", "louijeune"]])
-    problems = checks.check(rc, {"durkan", "louijeune", "a", "b", "c", "d", "e"})
-    assert "says 5 yes, but the record lists 7" in problems[0]
-    assert "says 2 no, but the record lists 0" in problems[1]
-    # "Durkin" in the description is read as Durkan, so the names complaint is about the votes, not a typo
-    assert "durkan, louijeune" in problems[2]
+    problems = checks.check(rc, {"durkan", "louijeune", "a", "b", "c", "d", "e"}, {"durkan": "Durkan", "louijeune": "Louijeune"})
+    assert problems[0] == "The description says 5 voted yes; the record lists 7."
+    assert problems[1] == "The description says 2 voted no; the record lists none."
+    # "Durkin" in the description is read as Durkan, so the complaint is about the votes, not the typo
+    assert problems[2] == "The description names Durkan and Louijeune as voting no; the record doesn't."
     ok = clean.CleanRollCall("y", "opendata", "1", "0001", "2023-11-29", "passed; yeas 2 (Durkan, Louijeune)",
                              [clean.Vote("durkan", "yes"), clean.Vote("louijeune", "yes")])
     assert checks.check(ok, {"durkan", "louijeune"}) == []

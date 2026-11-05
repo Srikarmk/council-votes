@@ -44,9 +44,21 @@ def closest(k: str, known: set[str]) -> str:
     return m[0] if m else k
 
 
-def check(rc: CleanRollCall, known: set[str] | None = None) -> list[str]:
+WORD = {"yes": "voted yes", "no": "voted no", "present": "voted present", "absent": "were not present"}
+ONE = {"yes": "voted yes", "no": "voted no", "present": "voted present", "absent": "was not present"}
+AS = {"yes": "voting yes", "no": "voting no", "present": "voting present", "absent": "not present"}
+
+
+def _names(keys, display) -> str:
+    names = [display.get(k, k) for k in sorted(keys)]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def check(rc: CleanRollCall, known: set[str] | None = None, display: dict[str, str] | None = None) -> list[str]:
     """Problems found in one roll call, as sentences; empty when it is consistent or states nothing.
-    `known` is every councillor's name key, used to read misspelled names in the description."""
+    `known` is every councillor's name key, used to read misspelled names in the description; `display`
+    maps a key to the name shown on the site."""
+    display = display or {}
     stated = stated_tally(rc.description)
     if known:
         for s in stated.values():
@@ -58,14 +70,13 @@ def check(rc: CleanRollCall, known: set[str] | None = None) -> list[str]:
     for vote, s in stated.items():
         recorded = [v.councillor.split("-")[0] for v in rc.votes if v.vote == vote]
         if len(recorded) != s["n"]:
-            problems.append(f"The description says {s['n']} {vote}, but the record lists {len(recorded)}.")
+            problems.append(f"The description says {s['n']} {WORD[vote] if s['n'] != 1 else ONE[vote]}; "
+                            f"the record lists {len(recorded) or 'none'}.")
         if s["names"] and s["names"] != set(recorded) and len(s["names"]) == s["n"]:
-            extra = sorted(set(recorded) - s["names"])
-            gone = sorted(s["names"] - set(recorded))
-            bits = []
+            gone, extra = s["names"] - set(recorded), set(recorded) - s["names"]
             if gone:
-                bits.append("named in the description but not recorded as " + vote + ": " + ", ".join(gone))
+                problems.append(f"The description names {_names(gone, display)} as {AS[vote]}; "
+                                f"the record doesn't.")
             if extra:
-                bits.append("recorded as " + vote + " but not named: " + ", ".join(extra))
-            problems.append("Names differ (" + "; ".join(bits) + ").")
+                problems.append(f"The record lists {_names(extra, display)} as {AS[vote]}; the description doesn't.")
     return problems
