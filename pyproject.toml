@@ -1,7 +1,7 @@
 [project]
 name = "councilvotes"
 version = "0.1.0"
-description = "Add your description here"
+description = "Fetch, check and publish Boston City Council roll-call votes from the City's own records."
 readme = "README.md"
 authors = [
     { name = "Srikarmk", email = "srikarmks@gmail.com" }
@@ -11,6 +11,9 @@ dependencies = [
     "beautifulsoup4>=4.15.0",
     "httpx>=0.28.1",
 ]
+
+[project.scripts]
+councilvotes = "councilvotes.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]
