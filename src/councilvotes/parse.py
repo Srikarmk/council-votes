@@ -21,6 +21,7 @@ class RollCall:
     date: str               # YYYY-MM-DD
     description: str
     votes: list[tuple[str, str]] = field(default_factory=list)  # (councillor as published, vote as published)
+    summary: str = ""       # boston.gov's own one-line summary of the docket, where it shows one
 
 
 def _text(el) -> str:
@@ -32,7 +33,13 @@ def parse_rollcall_page(html: str) -> list[RollCall]:
     out = []
     for node in soup.select("div.node-roll-call-dockets"):
         node_id = next((c[5:] for c in node.get("class", []) if re.fullmatch(r"node-\d+", c)), "")
-        docket = re.sub(r"^Docket\s*#\s*", "", _text(node.select_one(".dr-t")))
+        head = node.select_one(".dr-t")
+        sub = head.find("div") if head else None
+        summary = _text(sub)
+        if sub:
+            sub.extract()
+        m = re.search(r"Docket\s*#\s*(\S+)", _text(head))
+        docket = m.group(1) if m else _text(head)
         t = node.select_one("time[datetime]")
         date = t["datetime"][:10] if t else ""
         desc = _text(node.select_one(".g--7 p")) or _text(node.select_one(".g--7"))
@@ -43,7 +50,7 @@ def parse_rollcall_page(html: str) -> list[RollCall]:
             if name:
                 votes.append((name.rstrip(":").strip(), vote))
         if node_id and date:
-            out.append(RollCall("bostongov", node_id, docket, date, desc, votes))
+            out.append(RollCall("bostongov", node_id, docket, date, desc, votes, summary))
     return out
 
 

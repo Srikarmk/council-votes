@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { Shell } from "@/components/shell"
-import { fmt, longDate, rollcalls, summary } from "@/lib/data"
+import { doubtful, fmt, longDate, rollcalls, summary } from "@/lib/data"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const flagged = rollcalls.filter((r) => r.problems.length).length
+  const flagged = rollcalls.filter(doubtful).length
   const items = [
     { href: "/", label: "Latest" },
     { href: "/votes/", label: "All votes", count: fmt(summary.roll_calls) },

@@ -19,6 +19,9 @@ export interface RollCall {
   votes: [string, VoteKind, string?][]
   notes: string[]
   problems: string[]
+  dataset_differs: string[]
+  roster: string[]
+  title_source: "city" | "description"
   source: "bostongov" | "opendata"
   source_url: string
 }
@@ -45,6 +48,10 @@ export interface Summary {
   stated_tally: number
   inconsistent: number
   notes: number
+  compared_with_dataset: number
+  dataset_differs: number
+  dataset_duplicates: number
+  roster_outliers: number
   sources: { name: string; url: string; roll_calls: number; through: string | null; licence?: string }[]
 }
 
@@ -107,6 +114,14 @@ export function meetings(): { date: string; rolls: RollCall[] }[] {
     out[out.length - 1].rolls.push(r)
   }
   return out
+}
+
+/** A record to look at twice: its votes contradict its own tally, or it lists an older roster. */
+export const doubtful = (r: RollCall) => r.problems.length > 0 || r.roster.length > 0
+
+export function listNames(ids: string[]): string {
+  const n = ids.map(nameOf)
+  return n.length < 2 ? n.join("") : `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`
 }
 
 export function tallyText(c: Counts): string {

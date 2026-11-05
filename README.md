@@ -10,11 +10,11 @@ An independent project, not affiliated with or endorsed by the City of Boston.
 
 | Source | What it has | Licence |
 |---|---|---|
-| [boston.gov roll-call votes](https://www.boston.gov/departments/city-council/city-council-roll-call-votes) | Every roll call since 2008 with each councillor's vote, still updated | City of Boston terms of use, which allow republishing City information without implying endorsement |
+| [boston.gov roll-call votes](https://www.boston.gov/departments/city-council/city-council-roll-call-votes) | 1,821 roll calls, January 2008 to now, with each councillor's vote and a one-line summary of each docket | City of Boston terms of use, which allow republishing City information without implying endorsement |
 | [Analyze Boston: City Council Roll Call Votes](https://data.boston.gov/dataset/city-council-roll-call-votes) | 1,235 roll calls, January 2008 to March 2024, one row per councillor's vote | Open Data Commons PDDL (public domain) |
 
-boston.gov is the main source; the dataset fills in what hasn't been fetched from it and is compared with it
-where both have a roll call. Raw responses are kept in `data/raw/`, so every number on the site can be traced
+boston.gov is the main source. The dataset is a cross-check: of the 1,179 roll calls both cover, they agree
+vote for vote on 1,158, and the dataset repeats 40 roll calls that boston.gov has once. Raw responses are kept in `data/raw/`, so every number on the site can be traced
 to what the City published. Pages are fetched three seconds apart with an identifying user agent, and the
 daily run fetches only the newest three pages. Meeting video is not copied; YouTube's terms don't allow it.
 
@@ -28,8 +28,11 @@ because the data can't tell a returning councillor from a new one with the same 
 on the roll call's own page.
 
 `checks.py` compares each record's votes with the tally the clerk wrote in its description ("yeas 10, nays 2
-(Flynn, Murphy)"). On the open dataset, 58 of the 989 records that state a tally don't match it. They are
-flagged on the site with both versions shown; neither is changed.
+(Flynn, Murphy)"); a record counts as consistent if it matches any tally its description states. Of the 1,530
+records that state one, 84 don't match it: unanimous records whose description names the no votes, a council
+of 13 with 26 recorded votes, a "present" where the clerk wrote "not present". They are flagged on the site with
+both versions shown; neither is changed. A councillor listed with no vote at all is left out of the counts and
+treated as consistent with the clerk calling them absent.
 
 ## Run it
 

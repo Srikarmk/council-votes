@@ -59,12 +59,16 @@ def main(argv: list[str] | None = None) -> None:
     f = sub.add_parser("fetch", help="fetch boston.gov roll-call pages")
     f.add_argument("--all", action="store_true", help="every page, not just the newest")
     f.add_argument("--pages", type=int, default=NEWEST_PAGES)
+    f.add_argument("--start", type=int, default=0, help="with --all, resume from this page")
     sub.add_parser("dataset", help="fetch the Analyze Boston dataset")
     sub.add_parser("build", help="build web/data from data/raw")
     sub.add_parser("update", help="the scheduled run")
     a = p.parse_args(argv)
 
     if a.cmd == "fetch":
+        if a.all and a.start:
+            last = sources.last_page(open(sources.page_path(0)).read())
+            sys.exit(0 if fetch(list(range(a.start, last + 1))) else 1)
         sys.exit(0 if fetch(None if a.all else list(range(a.pages))) else 1)
     if a.cmd == "dataset":
         print(f"dataset: {len(sources.fetch_opendata())} rows")

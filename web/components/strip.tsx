@@ -41,7 +41,8 @@ export function VoteRow({ rc, showDate = true, extra }: { rc: RollCall; showDate
         <span className="vote-sub">
           {showDate ? `${shortDate(rc.date)} · ` : ""}Docket {rc.docket}
           {noes.length > 0 && !rc.election ? <> · <span className="no-ink">No: {noes.join(", ")}</span></> : null}
-          {rc.problems.length > 0 ? <> · <span className="flag">Contradicts itself</span></> : null}
+          {rc.problems.length > 0 ? <> · <span className="flag">Contradicts itself</span></>
+            : rc.roster.length > 0 ? <> · <span className="flag">Older roster</span></> : null}
           {extra}
         </span>
       </span>

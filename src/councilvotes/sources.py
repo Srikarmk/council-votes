@@ -72,13 +72,36 @@ def fetch_rollcall_pages(pages: list[int], delay: float = DELAY) -> list[int]:
         for i, n in enumerate(pages):
             if i:
                 time.sleep(delay)
-            r = c.get(ROLLCALL_URL, params={"page": n} if n else None)
+            r = _get(c, n)
             if r.status_code != 200 or "node-roll-call-dockets" not in r.text:
                 raise SourceError(f"boston.gov page {n}: HTTP {r.status_code}, no roll-call entries in the reply")
             with open(page_path(n), "w") as f:
-                f.write(r.text)
+                f.write(keep(r.text))
             saved.append(n)
     return saved
+
+
+def _get(c: httpx.Client, n: int, tries: int = 3) -> httpx.Response:
+    """One page, retrying a dropped connection or a timeout (seen on long runs) with a growing pause."""
+    for attempt in range(tries):
+        try:
+            return c.get(ROLLCALL_URL, params={"page": n} if n else None)
+        except (httpx.TransportError, httpx.TimeoutException) as e:
+            if attempt == tries - 1:
+                raise SourceError(f"boston.gov page {n}: {type(e).__name__} after {tries} tries") from e
+            time.sleep(10 * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
+def keep(html: str) -> str:
+    """The part of a roll-call page worth keeping, verbatim: each roll-call entry and the pager. The rest
+    (menus, scripts, per-request tokens) would make every fetch differ from the last."""
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, "html.parser")
+    entries = [str(n) for n in soup.select("div.node-roll-call-dockets")]
+    pager = sorted(set(re.findall(r"[?&]page=(\d+)", html)), key=int)
+    links = "".join(f'<a href="?page={p}"></a>' for p in pager)
+    return f"<!-- {ROLLCALL_URL}: roll-call entries and pager, as published -->\n" + "\n".join(entries) + f"\n<nav>{links}</nav>\n"
 
 
 def last_page(html: str) -> int:

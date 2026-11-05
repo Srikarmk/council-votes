@@ -88,3 +88,30 @@ def test_check_flags_a_record_that_contradicts_its_description():
     ok = clean.CleanRollCall("y", "opendata", "1", "0001", "2023-11-29", "passed; yeas 2 (Durkan, Louijeune)",
                              [clean.Vote("durkan", "yes"), clean.Vote("louijeune", "yes")])
     assert checks.check(ok, {"durkan", "louijeune"}) == []
+
+
+def test_parses_the_current_page_format_with_the_citys_summary():
+    rolls = parse.parse_rollcall_page(open(os.path.join(HERE, "fixtures", "rollcall-page-0-2026-11-05.html")).read())
+    first = rolls[0]
+    assert (first.docket, first.date) == ("2051", "2026-10-28")
+    assert first.summary == "Order requesting information about youth jobs."
+    assert "Councilor Mejia offered the following" in first.description
+
+
+def test_a_blank_vote_is_left_out_and_noted():
+    rows = [row(i, str(rid), f"2025-0{rid}-01", who, v) for i, (rid, who, v) in enumerate(
+        [(1, "Breadon", "Y"), (1, "Fernandes Anderson", "Y"), (2, "Breadon", "Y"), (2, "Fernandes Anderson", "Y"),
+         (3, "Breadon", "Y"), (3, "Fernandes Anderson", "Y"), (4, "Breadon", "Y"), (4, "Fernandes Anderson", "")])]
+    rolls, people = clean.clean(parse.parse_opendata(rows))
+    last = next(r for r in rolls if r.source_id == "4")
+    assert [v.councillor for v in last.votes] == ["breadon"]
+    assert any("with no vote" in n for n in last.notes)
+    assert people["fernandesanderson"]["last"] == "2025-03-01"
+
+
+def test_not_present_and_absent_add_up_and_a_blank_matches_absent():
+    t = checks.stated_tally("passed; yeas 10 (A), not present 1 (Flynn), absent 1 (Pepén).")
+    assert t["absent"] == {"n": 2, "names": {"flynn", "pepen"}}
+    rc = clean.CleanRollCall("x", "bostongov", "1", "0001", "2025-05-14", "passed; yeas 1 (Murphy), absent 1 (Fernandes Anderson).",
+                             [clean.Vote("murphy", "yes")], blank=["fernandesanderson"])
+    assert checks.check(rc, {"murphy", "fernandesanderson"}) == []

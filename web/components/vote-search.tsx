@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react"
 type Row = {
   id: string; d: string; k: string; t: string
   c: { yes: number; no: number; present: number; abstain: number; absent: number }
-  s: 0 | 1; p: 0 | 1; e: 0 | 1; v: string; w: string[]; x: string
+  s: 0 | 1; p: 0 | 1 | 2; e: 0 | 1; v: string; w: string[]; x: string
 }
 type Person = { id: string; name: string }
 
@@ -101,7 +101,7 @@ export function VoteSearch({ people, years }: { people: Person[]; years: string[
                         <span className="vote-sub">
                           {short(r.d)} · Docket {r.k}
                           {noes.length && !r.e ? <> · <span className="no-ink">No: {noes.join(", ")}</span></> : null}
-                          {r.p ? <> · <span className="flag">Contradicts itself</span></> : null}
+                          {r.p ? <> · <span className="flag">{r.p === 1 ? "Contradicts itself" : "Older roster"}</span></> : null}
                         </span>
                       </span>
                       <span className="tally">{r.e ? "Election" : <><b>{r.c.yes}</b> yes · <span className={r.c.no ? "no" : ""}>{r.c.no}</span> no</>}</span>
