@@ -159,7 +159,7 @@ def build() -> dict:
         against = sum(1 for r, m in split if m[cid] in ("yes", "no") and
                       m[cid] != ("yes" if r["counts"]["yes"] >= r["counts"]["no"] else "no"))
         agree = {}
-        for other in people:
+        for other in sorted(people):  # sorted, so an unchanged record writes an unchanged file
             if other == cid:
                 continue
             both = [(m[cid], m[other]) for _, m in split if m.get(other) in ("yes", "no") and m[cid] in ("yes", "no")]
@@ -188,9 +188,20 @@ def build() -> dict:
         ],
     }
     os.makedirs(OUT, exist_ok=True)
+    dump = lambda obj: json.dumps(obj, ensure_ascii=False, separators=(",", ":"))  # noqa: E731
+    # "generated" is when the data last changed: a rebuild that changes nothing keeps the old time, so the
+    # scheduled job commits (and the site redeploys) only when there is something new.
+    try:
+        before = {n: open(os.path.join(OUT, n)).read() for n in ("rollcalls.json", "councillors.json", "summary.json")}
+        old = json.loads(before["summary.json"])
+        if (before["rollcalls.json"] == dump(rolls) and before["councillors.json"] == dump(councillors)
+                and {**old, "generated": None} == {**summary, "generated": None}):
+            summary["generated"] = old["generated"]
+    except (OSError, ValueError, KeyError):
+        pass
     for name, obj in [("rollcalls.json", rolls), ("councillors.json", councillors), ("summary.json", summary)]:
         with open(os.path.join(OUT, name), "w") as f:
-            json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+            f.write(dump(obj))
     # A compact index the browser loads for search and filters: no full descriptions, no notes.
     index = [{"id": r["id"], "d": r["date"], "k": r["docket"], "t": r["title"], "c": r["counts"],
               "s": int(r["split"]), "p": 1 if r["problems"] else 2 if r["roster"] else 0, "e": int(r["election"]),

@@ -18,6 +18,7 @@ from . import build, sources
 STATE = os.path.join(sources.RAW, "bostongov", "fetched.json")
 STALE_AFTER = timedelta(days=7)  # a week of failed fetches fails the scheduled job, so someone hears about it
 NEWEST_PAGES = 3                 # new roll calls appear on page 0; three pages covers a busy month
+HEARTBEAT = timedelta(days=3)    # how often a quiet week still records a successful fetch (a small commit)
 
 
 def _now() -> datetime:
@@ -45,10 +46,12 @@ def fetch(pages: list[int] | None) -> bool:
             pages = list(range(1, last + 1))
         saved = sources.fetch_rollcall_pages(pages)
     except (sources.SourceError, OSError) as e:
+        # Only the log records a failure: writing it to the committed state would commit every day of an outage.
         print(f"boston.gov: {e}", file=sys.stderr)
-        _save_state(last_failure=_now().isoformat(timespec="seconds"), last_error=str(e)[:300])
         return False
-    _save_state(last_success=_now().isoformat(timespec="seconds"))
+    last = _state().get("last_success")
+    if not last or _now() - datetime.fromisoformat(last) > HEARTBEAT:
+        _save_state(last_success=_now().isoformat(timespec="seconds"))
     print(f"boston.gov: saved {len(saved)} page(s)")
     return True
 

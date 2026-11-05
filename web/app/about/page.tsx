@@ -12,7 +12,7 @@ export default function About() {
           <h1>About the data</h1>
           <p className="lede">
             Where every vote on this site comes from, what was changed to read it, and how the records are checked.
-            Last built {longDate(summary.generated.slice(0, 10))}.
+            Data last changed {longDate(summary.generated.slice(0, 10))}.
           </p>
         </div>
       </div>
