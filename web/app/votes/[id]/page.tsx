@@ -77,12 +77,12 @@ export default async function Vote({ params }: { params: Promise<{ id: string }>
             <div className="card-body">
               <div style={{ marginBottom: 14 }}><Strip rc={r} big /></div>
               <div className="ballot">
-                {seated(r).map(([id, v, choice]) => {
+                {seated(r).map(([id, v, choice], i) => {
                   const word = v === "choice" ? `${nameOf(choice ?? "")}` : VOTE_WORD[v]
                   const inner = <><span>{nameOf(id)}</span><span className={`v ${v}`}>{word}</span></>
                   return id === "unidentified"
-                    ? <span key={id + v} className="who">{inner}</span>
-                    : <Link key={id} href={`/councillors/${id}/`}>{inner}</Link>
+                    ? <span key={`${id}-${i}`} className="who">{inner}</span>
+                    : <Link key={`${id}-${i}`} href={`/councillors/${id}/`}>{inner}</Link>
                 })}
               </div>
             </div>

@@ -8,7 +8,7 @@ export function Strip({ rc, big = false }: { rc: RollCall; big?: boolean }) {
   const label = votes.map(([id, v]) => `${nameOf(id)}: ${VOTE_WORD[v].toLowerCase()}`).join(", ")
   return (
     <span className={big ? "strip big" : "strip"} role="img" aria-label={label}>
-      {votes.map(([id, v]) => <i key={id} className={LETTER[v]} title={`${nameOf(id)}: ${VOTE_WORD[v]}`} />)}
+      {votes.map(([id, v], i) => <i key={`${id}-${i}`} className={LETTER[v]} title={`${nameOf(id)}: ${VOTE_WORD[v]}`} />)}
     </span>
   )
 }

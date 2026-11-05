@@ -95,7 +95,7 @@ export function VoteSearch({ people, years }: { people: Person[]; years: string[
                 return (
                   <li key={r.id}>
                     <Link href={`/votes/${r.id}/`} className="vote-row">
-                      <span className="strip" aria-hidden="true">{seats.map(([w, v]) => <i key={w} className={v} />)}</span>
+                      <span className="strip" aria-hidden="true">{seats.map(([w, v], i) => <i key={`${w}-${i}`} className={v} />)}</span>
                       <span>
                         <span className="vote-title">{r.t}</span>
                         <span className="vote-sub">
