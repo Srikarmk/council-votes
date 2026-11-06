@@ -4,6 +4,8 @@ Every recorded roll-call vote of the Boston City Council since 2008, as a site y
 councillor voted, which votes split the Council, who votes with whom, and the records where the City's own
 data contradicts itself.
 
+**Live: [council-votes.vercel.app](https://council-votes.vercel.app)**
+
 An independent project, not affiliated with or endorsed by the City of Boston.
 
 ## Where the votes come from
