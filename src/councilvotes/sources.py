@@ -11,6 +11,7 @@ Raw responses are kept in data/raw/, so every parsed record can be traced to wha
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
@@ -60,24 +61,75 @@ def page_path(n: int) -> str:
     return os.path.join(RAW, "bostongov", f"page-{n:04d}.html")
 
 
+def shifted_dir() -> str:
+    return os.path.join(RAW, "bostongov", "shifted")
+
+
+def _entries(html: str) -> dict[str, str]:
+    """A saved page's roll-call entries by boston.gov node id, each as its verbatim HTML."""
+    from bs4 import BeautifulSoup
+    out = {}
+    for node in BeautifulSoup(html, "html.parser").select("div.node-roll-call-dockets"):
+        nid = next((c[5:] for c in node.get("class", []) if re.fullmatch(r"node-\d+", c)), "")
+        if nid:
+            out[nid] = str(node)
+    return out
+
+
+def keep_shifted(old: dict[int, str], stamp: str) -> int:
+    """Save the entries of overwritten pages that no saved page holds any more. Returns how many.
+
+    The roll-call pager lists the newest first, so each new roll call pushes every older one down. A run that
+    refetches only the newest pages overwrites page N with entries that used to be on page N-1, and the
+    entries that slid from page N to page N+1 are now in neither the fresh page N nor the old page N+1. They
+    go to shifted/, which the build reads after the pages.
+    """
+    present = set()
+    for path in glob.glob(os.path.join(RAW, "bostongov", "page-*.html")):
+        present |= set(_entries(open(path).read()))
+    for path in glob.glob(os.path.join(shifted_dir(), "*.html")):
+        present |= set(_entries(open(path).read()))
+    kept = 0
+    for n, html in sorted(old.items()):
+        lost = {nid: e for nid, e in _entries(html).items() if nid not in present}
+        if not lost:
+            continue
+        os.makedirs(shifted_dir(), exist_ok=True)
+        with open(os.path.join(shifted_dir(), f"page-{n:04d}-{stamp}.html"), "w") as f:
+            f.write(f"<!-- {ROLLCALL_URL}: entries that were on page {n} before a refetch moved them -->\n")
+            f.write("\n".join(lost.values()) + "\n")
+        present |= set(lost)
+        kept += len(lost)
+    return kept
+
+
 def fetch_rollcall_pages(pages: list[int], delay: float = DELAY) -> list[int]:
     """Fetch boston.gov roll-call pages (0 is the newest) into data/raw/bostongov/. Returns the pages saved.
 
     A 503 or other server error stops the run instead of retrying in a loop: boston.gov's own outage page
-    is not data, and the next scheduled run will try again.
+    is not data, and the next scheduled run will try again. Entries that an overwrite would lose go to
+    shifted/ (see keep_shifted), including when the run stops partway.
     """
     saved = []
+    old: dict[int, str] = {}
     os.makedirs(os.path.dirname(page_path(0)), exist_ok=True)
-    with _client() as c:
-        for i, n in enumerate(pages):
-            if i:
-                time.sleep(delay)
-            r = _get(c, n)
-            if r.status_code != 200 or "node-roll-call-dockets" not in r.text:
-                raise SourceError(f"boston.gov page {n}: HTTP {r.status_code}, no roll-call entries in the reply")
-            with open(page_path(n), "w") as f:
-                f.write(keep(r.text))
-            saved.append(n)
+    try:
+        with _client() as c:
+            for i, n in enumerate(pages):
+                if i:
+                    time.sleep(delay)
+                r = _get(c, n)
+                if r.status_code != 200 or "node-roll-call-dockets" not in r.text:
+                    raise SourceError(f"boston.gov page {n}: HTTP {r.status_code}, no roll-call entries in the reply")
+                if os.path.exists(page_path(n)):
+                    old[n] = open(page_path(n)).read()
+                with open(page_path(n), "w") as f:
+                    f.write(keep(r.text))
+                saved.append(n)
+    finally:
+        kept = keep_shifted(old, time.strftime("%Y%m%d", time.gmtime()))
+        if kept:
+            print(f"boston.gov: kept {kept} entr{'y' if kept == 1 else 'ies'} that moved past the refetched pages")
     return saved
 
 

@@ -115,3 +115,34 @@ def test_not_present_and_absent_add_up_and_a_blank_matches_absent():
     rc = clean.CleanRollCall("x", "bostongov", "1", "0001", "2025-05-14", "passed; yeas 1 (Murphy), absent 1 (Fernandes Anderson).",
                              [clean.Vote("murphy", "yes")], blank=["fernandesanderson"])
     assert checks.check(rc, {"murphy", "fernandesanderson"}) == []
+
+
+def _page(entries):
+    return "<!-- test -->\n" + "\n".join(entries) + "\n<nav></nav>\n"
+
+
+def test_a_refetch_that_shifts_entries_down_keeps_the_ones_it_would_lose(tmp_path, monkeypatch):
+    from councilvotes import build, sources
+    entries = list(sources._entries(open(os.path.join(HERE, "fixtures", "rollcall-page-0-2026-11-05.html")).read()).values())
+    assert len(entries) >= 6
+    monkeypatch.setattr(sources, "RAW", str(tmp_path))
+    monkeypatch.setattr(build, "RAW", str(tmp_path))
+    os.makedirs(tmp_path / "bostongov")
+    old0, old1 = _page(entries[:3]), _page(entries[3:6])
+    (tmp_path / "bostongov" / "page-0001.html").write_text(old1)
+    # Two new roll calls pushed everything down: page 0 now starts later, and the run refetched only page 0,
+    # so entries[1] and entries[2] are on no saved page.
+    (tmp_path / "bostongov" / "page-0000.html").write_text(_page(entries[:1]))
+    assert sources.keep_shifted({0: old0}, "20261117") == 2
+    gov, _ = build.load_sources()
+    assert {r.source_id for r in gov} == set(sources._entries(_page(entries[:6])))
+    # A second run with nothing new keeps nothing more.
+    assert sources.keep_shifted({0: _page(entries[:1])}, "20261118") == 0
+
+
+def test_a_rebuild_that_loses_a_roll_call_is_caught():
+    from collections import Counter
+    from councilvotes.cli import lost_roll_calls
+    before = Counter([("2026-10-07", "1921"), ("2026-10-07", "1922"), ("2026-11-04", "1")])
+    assert lost_roll_calls(before, Counter([("2026-10-07", "1922"), ("2026-11-04", "1"), ("2026-11-04", "2")])) == [("2026-10-07", "1921")]
+    assert lost_roll_calls(before, before + Counter([("2026-11-18", "9")])) == []

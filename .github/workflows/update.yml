@@ -38,6 +38,6 @@ jobs:
           if git diff --cached --quiet; then echo "No change"; exit 0; fi
           git commit -m "Update votes $(date -u +%Y-%m-%d)"
           git push
-      - name: Fail if boston.gov has been unreachable for a week
+      - name: Fail if boston.gov has been unreachable for a week, or a rebuild would have lost roll calls
         if: steps.update.outcome == 'failure'
         run: exit 1

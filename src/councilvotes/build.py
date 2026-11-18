@@ -25,7 +25,10 @@ VOTE_LETTER = {"yes": "y", "no": "n", "present": "p", "abstain": "a", "absent": 
 
 def load_sources() -> tuple[list[parse.RollCall], list[parse.RollCall]]:
     gov = []
-    for path in sorted(glob.glob(os.path.join(RAW, "bostongov", "page-*.html"))):
+    # the pages first, so a fresh copy of an entry wins over one kept in shifted/ by an earlier run
+    paths = sorted(glob.glob(os.path.join(RAW, "bostongov", "page-*.html")))
+    paths += sorted(glob.glob(os.path.join(RAW, "bostongov", "shifted", "*.html")))
+    for path in paths:
         with open(path) as f:
             gov += parse.parse_rollcall_page(f.read())
     seen, unique = set(), []

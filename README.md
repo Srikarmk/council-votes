@@ -12,7 +12,7 @@ An independent project, not affiliated with or endorsed by the City of Boston.
 
 | Source | What it has | Licence |
 |---|---|---|
-| [boston.gov roll-call votes](https://www.boston.gov/departments/city-council/city-council-roll-call-votes) | Every roll call from January 2008 to the latest meeting (1,821 so far), with each councillor's vote and a one-line summary of each docket | City of Boston terms of use, which allow republishing City information without implying endorsement |
+| [boston.gov roll-call votes](https://www.boston.gov/departments/city-council/city-council-roll-call-votes) | Every roll call from January 2008 to the latest meeting, with each councillor's vote and a one-line summary of each docket | City of Boston terms of use, which allow republishing City information without implying endorsement |
 | [Analyze Boston: City Council Roll Call Votes](https://data.boston.gov/dataset/city-council-roll-call-votes) | 1,235 roll calls, January 2008 to March 2024, one row per councillor's vote; not updated since mid-2024 | Open Data Commons PDDL (public domain) |
 
 boston.gov is the source for every vote on the site, including the 642 since the dataset stopped. The dataset is a cross-check on the older ones: of the 1,179 roll calls both cover, they agree
@@ -43,7 +43,7 @@ Requires [uv](https://docs.astral.sh/uv/) and pnpm.
 ```sh
 uv sync
 uv run councilvotes dataset        # the Analyze Boston dataset
-uv run councilvotes fetch --all    # every boston.gov page, about 150, three seconds apart
+uv run councilvotes fetch --all    # every boston.gov page, about 185, three seconds apart
 uv run councilvotes build          # web/data/*.json and web/public/index.json
 uv run pytest
 
@@ -54,6 +54,14 @@ pnpm build                         # a static site in web/out
 `.github/workflows/update.yml` runs `councilvotes update` every morning: the newest boston.gov pages, the
 dataset, a rebuild and the tests, then a commit if anything changed. If boston.gov hasn't answered for a week,
 the run fails so the failure email goes out.
+
+The pager lists the newest roll call first, so each new one pushes every older entry down a slot. Refetching
+only the newest pages would overwrite page 2 with entries that used to be on page 1, and the entries that
+slid from page 2 to page 3 would be on no saved page. Before a page is overwritten, its entries that no saved
+page still holds go to `data/raw/bostongov/shifted/`, which the build reads after the pages. As a backstop,
+the run fails without changing the site's data if a rebuild has fewer roll calls than the site already shows.
+Until 2026-11-17 the daily run had this bug and dropped 16 roll calls from October 7 and 21; a full refetch
+brought them back.
 
 ## Layout
 

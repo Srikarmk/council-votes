@@ -1,7 +1,7 @@
 """council-votes: fetch the City's roll-call records and build the site's data.
 
     uv run councilvotes update          # the scheduled run: newest boston.gov pages, the dataset, then build
-    uv run councilvotes fetch --all     # every boston.gov page (about 150, three seconds apart)
+    uv run councilvotes fetch --all     # every boston.gov page (about 185, three seconds apart)
     uv run councilvotes build           # rebuild web/data from what's already in data/raw
 """
 
@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import sys
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 from . import build, sources
@@ -56,6 +57,37 @@ def fetch(pages: list[int] | None) -> bool:
     return True
 
 
+def _published() -> Counter:
+    """The (date, docket) pairs in the site's current data, counted, so a rebuild can be checked against it."""
+    path = os.path.join(build.OUT, "rollcalls.json")
+    if not os.path.exists(path):
+        return Counter()
+    return Counter((r["date"], r["docket"].lstrip("0")) for r in json.load(open(path)))
+
+
+def _outputs() -> dict[str, str | None]:
+    """The files a build writes, as they are now, so a bad build can be undone."""
+    paths = [os.path.join(build.OUT, n) for n in ("rollcalls.json", "councillors.json", "summary.json")]
+    paths.append(os.path.join(build.ROOT, "web", "public", "index.json"))
+    return {p: (open(p).read() if os.path.exists(p) else None) for p in paths}
+
+
+def _restore(saved: dict[str, str | None]) -> None:
+    for path, text in saved.items():
+        if text is None:
+            if os.path.exists(path):
+                os.remove(path)
+        else:
+            with open(path, "w") as f:
+                f.write(text)
+
+
+def lost_roll_calls(before: Counter, after: Counter) -> list[tuple[str, str]]:
+    """Roll calls the previous build had and this one doesn't. Keyed by date and docket, not id, because a roll
+    call first known from the dataset keeps its key when boston.gov's copy of it replaces the dataset's."""
+    return sorted((before - after).elements())
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="councilvotes", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -80,6 +112,7 @@ def main(argv: list[str] | None = None) -> None:
         print(json.dumps(build.build(), indent=2))
         return
 
+    before, outputs = _published(), _outputs()
     ok = fetch(list(range(NEWEST_PAGES)))
     try:
         print(f"dataset: {len(sources.fetch_opendata())} rows")
@@ -87,6 +120,14 @@ def main(argv: list[str] | None = None) -> None:
         print(f"dataset: kept the saved copy ({e})", file=sys.stderr)
     s = build.build()
     print(f"built: {s['roll_calls']} roll calls through {s['latest']}, {s['inconsistent']} contradictions")
+    lost = lost_roll_calls(before, _published())
+    if lost:
+        # A roll call never leaves the record on its own; a rebuild that drops one has a bug. Keep the site's
+        # data as it was (the fetched pages are still saved) and fail, so the job doesn't commit the loss.
+        _restore(outputs)
+        print(f"this build lost {len(lost)} roll call(s) the site had, so the site's data was left as it was: " +
+              ", ".join(f"{d} #{k}" for d, k in lost[:20]), file=sys.stderr)
+        sys.exit(1)
     if not ok:
         last = _state().get("last_success")
         since = _now() - datetime.fromisoformat(last) if last else None
